@@ -1,0 +1,114 @@
+# First, install required packages (uncomment if needed)
+# !pip install -U transformers torch torchvision pillow requests
+
+from transformers import pipeline, AutoImageProcessor, AutoModelForImageClassification
+import torch
+from PIL import Image
+import requests
+from io import BytesIO
+import warnings
+warnings.filterwarnings('ignore')
+
+# Method 1: Using pipeline (high-level approach)
+print("Loading model pipeline...")
+pipe = pipeline("image-classification", model="RavenOnur/Sign-Language")
+
+# Test with a sample image
+test_image_url = "https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/hub/parrots.png"
+
+try:
+    # Download and process the image
+    response = requests.get(test_image_url)
+    image = Image.open(BytesIO(response.content))
+    
+    # Run prediction
+    print("\n=== Pipeline Results ===")
+    results = pipe(image)
+    
+    print("Predictions:")
+    for i, result in enumerate(results[:5]):  # Show top 5 predictions
+        print(f"{i+1}. {result['label']}: {result['score']:.4f}")
+        
+except Exception as e:
+    print(f"Error with pipeline: {e}")
+
+# Method 2: Direct model loading (low-level approach)
+print("\n\nLoading model directly...")
+processor = AutoImageProcessor.from_pretrained("RavenOnur/Sign-Language")
+model = AutoModelForImageClassification.from_pretrained("RavenOnur/Sign-Language")
+
+try:
+    # Process image
+    inputs = processor(images=image, return_tensors="pt")
+    
+    # Get predictions
+    with torch.no_grad():
+        outputs = model(**inputs)
+        logits = outputs.logits
+        predictions = torch.nn.functional.softmax(logits, dim=-1)
+    
+    # Get model labels
+    labels = model.config.id2label
+    
+    print("\n=== Direct Model Results ===")
+    # Get top 5 predictions
+    top5_prob, top5_catid = torch.topk(predictions, 5)
+    
+    for i in range(5):
+        label_idx = top5_catid[0][i].item()
+        label_name = labels[label_idx] if label_idx in labels else f"Class_{label_idx}"
+        probability = top5_prob[0][i].item()
+        print(f"{i+1}. {label_name}: {probability:.4f}")
+        
+except Exception as e:
+    print(f"Error with direct model: {e}")
+
+# Test with your own image
+def test_custom_image(image_path_or_url):
+    """Test the model with a custom image"""
+    try:
+        # Load image
+        if image_path_or_url.startswith('http'):
+            response = requests.get(image_path_or_url)
+            image = Image.open(BytesIO(response.content))
+        else:
+            image = Image.open(image_path_or_url)
+        
+        # Ensure image is in RGB format
+        if image.mode != 'RGB':
+            image = image.convert('RGB')
+        
+        print(f"\n=== Testing Custom Image ===")
+        print(f"Image size: {image.size}")
+        print(f"Image mode: {image.mode}")
+        
+        # Using pipeline
+        results = pipe(image)
+        print("\nTop predictions:")
+        for i, result in enumerate(results[:3]):
+            print(f"{i+1}. {result['label']}: {result['score']:.4f}")
+            
+        return results
+        
+    except Exception as e:
+        print(f"Error testing custom image: {e}")
+        return None
+
+# Example of testing with different image sources:
+# 1. Test with the same parrot image
+print("\n" + "="*50)
+print("TESTING WITH SAMPLE IMAGE")
+print("="*50)
+test_custom_image("https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/hub/parrots.png")
+
+# Note: For actual sign language testing, you'd want to use sign language images
+# You can test with your own sign language images by providing the path or URL:
+# test_custom_image("path/to/your/sign/language/image.jpg")
+# test_custom_image("https://example.com/sign-language-image.jpg")
+
+print("\n" + "="*50)
+print("MODEL INFORMATION")
+print("="*50)
+print(f"Model processor: {type(processor).__name__}")
+print(f"Model type: {type(model).__name__}")
+print(f"Number of classes: {len(model.config.id2label) if hasattr(model.config, 'id2label') else 'Unknown'}")
