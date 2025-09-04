@@ -112,3 +112,13 @@ print("="*50)
 print(f"Model processor: {type(processor).__name__}")
 print(f"Model type: {type(model).__name__}")
 print(f"Number of classes: {len(model.config.id2label) if hasattr(model.config, 'id2label') else 'Unknown'}")
+
+#upload here
+# If using Google Colab, you can upload an image
+from google.colab import files
+uploaded = files.upload()
+
+# Then test with the uploaded file
+for filename in uploaded.keys():
+    test_custom_image(filename)
+    break  # Test with the first uploaded file
